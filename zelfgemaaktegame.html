@@ -2,165 +2,230 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Whack-a-Mole</title>
+  <title>Mole Grid</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      margin: 0;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
+      justify-content: center;
       height: 100vh;
-      background-color: #f0f0f0;
+      margin: 0;
+      position: relative;
     }
 
     .container {
-      text-align: center;
-    }
-
-    .gameboard {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 20px; /* Ruimte tussen de gaten vergroten */
-      padding: 20px; /* Ruimte rondom het speelbord vergroten */
-    }
-
-    .hole {
-      width: 100px; /* Aangepaste breedte van het gat */
-      height: 100px; /* Aangepaste hoogte van het gat */
-      border-radius: 50%;
+      display: grid;
+      margin-top: 20px;
       position: relative;
-      overflow: hidden;
-      background-image: url('img/hole-removebg-preview.png');
+    }
+
+    .circle {
+      width: 60px; /* Adjust size of circle */
+      height: 60px; /* Adjust size of circle */
+      border-radius: 50%; /* Makes the element round */
+      background-color: black; /* Color of the circle */
       background-size: cover;
-      margin: 10px; /* Ruimte tussen de gaten vergroten */
+      margin: 5px; /* Margin between circles */
+      cursor: pointer; /* Change cursor to pointer on hover */
     }
 
-    .mole {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      cursor: pointer;
+    button {
+      margin-bottom: 10px;
+    }
+
+    #score-container, #highscore-main {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      opacity: 0;
-      transition: opacity 0.3s ease-in-out;
-      background-size: cover;
-      z-index: 2; /* Zet de mollen boven de gaten */
-    }
-
-    .hole .mole.active {
-      opacity: 1;
-    }
-
-    .hole.active {
-      visibility: hidden; /* Maak het gat onzichtbaar wanneer de mol actief is */
-    }
-
-    #score {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      font-size: 24px;
+      top: 10px;
+      right: 10px;
       font-weight: bold;
+      font-size: 24px;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Whack-a-Mole</h1>
-    <div id="difficulty">
-      <button onclick="startGame('easy')">Makkelijk</button>
-      <button onclick="startGame('normal')">Normaal</button>
-      <button onclick="startGame('hard')">Moeilijk</button>
-    </div>
-    <div class="gameboard" id="gameboard"></div>
-    <div id="score">Score: 0</div>
+  <div id="difficulty-buttons">
+    <button onclick="chooseDifficulty(6)">Makkelijk</button>
+    <button onclick="chooseDifficulty(8)">Normaal</button>
+    <button onclick="chooseDifficulty(10)">Moeilijk</button>
+    <p id="highscore-main">Highscore: 0</p>
   </div>
 
+  <div id="game-container" style="display: none;">
+    <span id="score-container">
+      <span id="score">Score: 0</span>
+      <span id="highscore" style="font-size: 24px;">Highscore: 0</span>
+    </span>
+    <button id="start-game-btn" onclick="startGame()">Start Game</button>
+    <span id="timer"></span>
+    <div id="container"></div>
+    <button id="back-btn" style="display: none;" onclick="backToMenu()">Terug naar beginscherm</button>
+  </div>
 
   <script>
-    let difficulty = 'normal'; 
+    let gridSize = 0;
+    let timerInterval;
+    let timerValue = 0;
+    let gameStarted = false;
     let score = 0;
-    const moleImages = [
-      'img/mol1.png',
-      'img/mol2.png',
-      'img/mol3.png',
-      'img/mol4.png',
-      'img/mol5.png',
-      'img/mol6.png',
-      'img/mol7.png',
-      'img/mol8.png'
-    ];
+    let highscore = localStorage.getItem('highscore') ? parseInt(localStorage.getItem('highscore')) : 0;
 
-    function createGrid(gridSize, holeSize) {
-      const gameboard = document.getElementById('gameboard');
-      gameboard.innerHTML = '';
-
-      const totalHoles = gridSize * gridSize;
-
-      for (let i = 0; i < totalHoles; i++) {
-        const hole = document.createElement('div');
-        hole.classList.add('hole');
-        hole.style.width = holeSize + 'px';
-        hole.style.height = holeSize + 'px';
-
-        const mole = document.createElement('div');
-        mole.classList.add('mole');
-        hole.appendChild(mole);
-
-        gameboard.appendChild(hole);
-      }
-
-      gameboard.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
-      gameboard.style.gridTemplateRows = `repeat(${gridSize}, 1fr)`;
+    function chooseDifficulty(size) {
+      gridSize = size;
+      document.getElementById('difficulty-buttons').style.display = 'none';
+      document.getElementById('game-container').style.display = 'block';
+      initializeGame();
+      displayHighscore();
     }
 
-    function startGame(selectedDifficulty) {
-      difficulty = selectedDifficulty;
-
-      let gridSize = 8;
-      let holeSize = 40;
-
-      if (difficulty === 'easy') {
-        gridSize = 6;
-        holeSize = 50;
-      } else if (difficulty === 'hard') {
-        gridSize = 10;
-        holeSize = 30;
-      }
-
-      score = 0;
-      document.getElementById('score').textContent = `Score: ${score}`;
-
-      createGrid(gridSize, holeSize);
-      animateMoles(gridSize * gridSize);
+    function displayHighscore() {
+      document.getElementById('highscore').innerText = `Highscore: ${highscore}`;
+      document.getElementById('highscore-main').innerText = `Highscore: ${highscore}`;
     }
 
-    function animateMoles(totalMoles) {
-      const moles = document.querySelectorAll('.mole');
+    function updateHighscore() {
+      if (score > highscore) {
+        highscore = score;
+        localStorage.setItem('highscore', highscore.toString());
+        displayHighscore();
+      }
+    }
 
-      setInterval(() => {
-        moles.forEach(mole => mole.classList.remove('active'));
+    function initializeGame() {
+      const container = document.getElementById('container');
+      container.style.display = 'grid';
+      container.innerHTML = ''; // Clear previous grid
 
-        const randomIndex = Math.floor(Math.random() * totalMoles);
-        const randomMoleImg = moleImages[Math.floor(Math.random() * moleImages.length)];
-        moles[randomIndex].style.backgroundImage = `url(${randomMoleImg})`;
-        moles[randomIndex].classList.add('active');
-      }, 1000);
+      container.style.gridTemplateColumns = `repeat(${gridSize}, 70px)`; /* Increase grid cell size */
+      container.style.gridTemplateRows = `repeat(${gridSize}, 70px)`; /* Increase grid cell size */
 
-      moles.forEach(mole => {
-        mole.addEventListener('click', () => {
-          if (mole.classList.contains('active')) {
-            mole.classList.remove('active');
-            score++;
-            document.getElementById('score').textContent = `Score: ${score}`;
+      for (let i = 0; i < gridSize * gridSize; i++) {
+        const circle = document.createElement('div');
+        circle.classList.add('circle');
+        circle.onclick = function() {
+          if (gameStarted && this.style.backgroundImage !== '' && this.style.backgroundColor !== 'black') {
+            this.style.backgroundImage = '';
+            this.style.backgroundColor = 'black';
+            increaseScore();
+            resetTimer();
+            changeRandomCircleImage();
           }
-        });
+        };
+        container.appendChild(circle);
+      }
+    }
+
+    function startGame() {
+      gameStarted = true;
+      document.getElementById('start-game-btn').style.display = 'none'; // Hide start game button
+      startTimer();
+      changeRandomCircleImage();
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      timerValue = getTimerValue(gridSize);
+      updateTimer(timerValue);
+      timerInterval = setInterval(() => {
+        timerValue -= 0.1;
+        if (timerValue <= 0) {
+          clearInterval(timerInterval);
+          endGame();
+        } else {
+          updateTimer(timerValue.toFixed(1));
+        }
+      }, 100);
+    }
+
+    function endGame() {
+      gameStarted = false;
+      document.querySelectorAll('.circle').forEach(circle => {
+        circle.onclick = null; // Remove onclick event, making circles unclickable
       });
+      document.getElementById('back-btn').style.display = 'block'; // Show back to menu button
+      displayLostMessage();
+      document.getElementById('start-game-btn').style.display = 'inline-block'; // Show start game button again
+    }
+
+    function displayLostMessage() {
+      const container = document.getElementById('container');
+      const lostMessage = document.createElement('div');
+      lostMessage.style.color = 'red';
+      lostMessage.style.fontSize = '20px';
+      lostMessage.innerText = `Je hebt verloren! Score: ${score}`;
+      container.appendChild(lostMessage);
+    }
+
+    function backToMenu() {
+      document.getElementById('difficulty-buttons').style.display = 'flex';
+      document.getElementById('game-container').style.display = 'none';
+      document.getElementById('back-btn').style.display = 'none';
+      clearInterval(timerInterval);
+      timerValue = 0;
+      updateTimer(timerValue);
+      score = 0;
+      document.getElementById('score').innerText = `Score: ${score}`;
+      initializeGame();
+    }
+
+    function getTimerValue(size) {
+      if (size === 6) return 1.5;
+      if (size === 8) return 1;
+      if (size === 10) return 0.5;
+      return 0;
+    }
+
+    function updateTimer(value) {
+      document.getElementById('timer').innerText = `Tijd: ${value} seconden`;
+    }
+
+    function changeRandomCircleImage() {
+      if (gridSize === 0 || !gameStarted) {
+        alert('Kies eerst een moeilijkheidsgraad en start het spel.');
+        return;
+      }
+
+      const circles = document.querySelectorAll('.circle');
+      const moleCircles = document.querySelectorAll('.circle[style^="background-image"]');
+
+      moleCircles.forEach(circle => {
+        circle.style.backgroundImage = '';
+      });
+
+      let randomIndex;
+      do {
+        randomIndex = Math.floor(Math.random() * gridSize * gridSize);
+      } while (circles[randomIndex].style.backgroundImage !== '');
+
+      circles[randomIndex].style.backgroundImage = `url(${getRandomMoleImage()})`;
+      circles[randomIndex].style.backgroundColor = '';
+      resetTimer();
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      startTimer();
+    }
+
+    function increaseScore() {
+      score++;
+      document.getElementById('score').innerText = `Score: ${score}`;
+      updateHighscore();
+      resetTimer();
+    }
+
+    function getRandomMoleImage() {
+      const moleImages = [
+        'img/mol1.png',
+        'img/mol2.png',
+        'img/mol3.png',
+        'img/mol4.png',
+        'img/mol5.png',
+        'img/mol6.png',
+        'img/mol7.png',
+        'img/mol8.png'
+      ];
+      return moleImages[Math.floor(Math.random() * moleImages.length)];
     }
   </script>
 </body>
